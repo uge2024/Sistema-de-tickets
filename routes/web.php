@@ -1,15 +1,33 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Livewire\ManageVideos;
 
-Route::view('/', 'welcome');
+Route::middleware('auth')->group(function () {
+    Route::view('/', 'welcome')->name('home');
+    Route::view('dashboard', 'dashboard')->middleware('verified')->name('dashboard');
+    Route::view('profile', 'profile')->name('profile');
+    
+    Route::get('/create-area', function () {
+        return view('create-area');
+    })->name('create-area');
+    Route::get('/manage', function () {
+        return view('manage');
+    })->name('manage');
+    Route::get('/display', function () {
+        return view('display');
+    })->name('display');
+    Route::get('/videos', function () {
+        return view('videos');
+    })->name('videos');
+    Route::view('/puestos', 'puestos')->name('puestos');
+    Route::get('/asignar-puesto', function () {
+        return view('asignar-puesto');
+    })->middleware('auth')->name('asignar-puesto');
+   
+    
 
-Route::view('dashboard', 'dashboard')
-    ->middleware(['auth', 'verified'])
-    ->name('dashboard');
-
-Route::view('profile', 'profile')
-    ->middleware(['auth'])
-    ->name('profile');
+    
+});
 
 require __DIR__.'/auth.php';

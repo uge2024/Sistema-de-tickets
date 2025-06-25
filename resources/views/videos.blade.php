@@ -5,12 +5,12 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center">
-    <div class="w-full max-w-md mx-auto p-6">
+    <div class="container mx-auto p-6">
         <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Sistema de Fichas</h1>
         
         <!-- Sección para generar tickets -->
         <div class="bg-white p-6 rounded-lg shadow-md mb-6">
-            @livewire('generate-ticket')
+            @livewire('manage-videos')
         </div>
         
         <!-- Botones de navegación -->
