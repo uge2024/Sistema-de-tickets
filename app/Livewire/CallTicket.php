@@ -62,9 +62,14 @@ class CallTicket extends Component
         if ($nextTicket) {
             $nextTicket->update(['status' => 'called', 'updated_at' => now()]);
 
+            // ← AQUÍ ESTÁ EL CAMBIO: Agregar puesto_id
             Display::updateOrCreate(
                 ['area_id' => $areaId],
-                ['ticket_id' => $nextTicket->id, 'called_at' => now()]
+                [
+                    'ticket_id' => $nextTicket->id, 
+                    'puesto_id' => $this->puesto->id,  // ← LÍNEA AGREGADA
+                    'called_at' => now()
+                ]
             );
 
             // Forzar recarga inmediata de tickets
@@ -83,27 +88,43 @@ class CallTicket extends Component
     }
 
     public function recallTicket($ticketId)
-    {
-        $ticket = Ticket::with('area')->findOrFail($ticketId);
+{
+    $ticket = Ticket::with('area')->findOrFail($ticketId);
 
-        if ($ticket->status === 'called' && $ticket->area_id === $this->puesto->area_id) {
-            $ticket->update(['updated_at' => now()]);
+    if ($ticket->status === 'called' && $ticket->area_id === $this->puesto->area_id) {
+        // Actualizar timestamp del ticket para marcarlo como recién llamado
+        $ticket->update(['updated_at' => now()]);
 
-            Display::updateOrCreate(
-                ['area_id' => $ticket->area_id],
-                ['ticket_id' => $ticket->id, 'called_at' => now()]
-            );
+        // Actualizar/crear display con el puesto actual
+        Display::updateOrCreate(
+            ['area_id' => $ticket->area_id],
+            [
+                'ticket_id' => $ticket->id, 
+                'puesto_id' => $this->puesto->id,
+                'called_at' => now()
+            ]
+        );
 
-            $this->loadTickets();
-            $this->dispatch('ticket-called');
-            $this->dispatch('ticket-updated', [
-                'areaId' => $ticket->area_id,
-                'ticketNumber' => $ticket->ticket_number,
-                'areaName' => $ticket->area->name,
-            ])->to('display-screen');
-            $this->dispatch('refresh-view');
-        }
+        // Recargar tickets para actualizar la vista
+        $this->loadTickets();
+        
+        // IMPORTANTE: Emitir primero el evento general de ticket-called
+        $this->dispatch('ticket-called', ['areaId' => $ticket->area_id]);
+        
+        // Luego emitir el evento para el display
+        $this->dispatch('ticket-updated', [
+            'areaId' => $ticket->area_id,
+            'ticketNumber' => $ticket->ticket_number,
+            'areaName' => $ticket->area->name,
+        ])->to('display-screen');
+        
+        // Finalmente refrescar la vista
+        $this->dispatch('refresh-view');
+        
+        // Log para debugging
+        \Log::info("Ticket {$ticket->ticket_number} vuelto a llamar por puesto {$this->puesto->name}");
     }
+}
 
     public function render()
     {

@@ -1,5 +1,5 @@
-<div class="min-h-screen bg-gray-100 p-6 flex items-center justify-center">
-    <div class="container mx-auto max-w-7xl">
+<div class="p-6  flex w-full justify-center">
+    <div class="container">
         <h1 class="text-3xl font-bold text-gray-800 mb-8 text-center">Pantalla de Espera</h1>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -20,8 +20,8 @@
                             }"
                             id="area-{{ $area->id }}"
                         >
-                            <h3 class="text-lg font-medium" 
-                                :class="isBlinking ? 'text-green-800' : 'text-blue-800'">
+                            <h3 class="text-lg font-medium transition-all duration-300" 
+                                :class="isBlinking ? 'text-green-800 scale-110' : 'text-blue-800'">
                                 {{ $area->name }}
                             </h3>
                             @if ($area->display?->ticket)
@@ -34,9 +34,29 @@
                                 >
                                     {{ $area->display->ticket->ticket_number }}
                                 </p>
-                                <p class="text-sm text-gray-600">
-                                    {{ $area->display->puesto?->name ? 'Puesto: ' . $area->display->puesto->name : '' }}
-                                    - Llamada a las {{ \Carbon\Carbon::parse($area->display->called_at)->format('H:i') }}
+                                
+                                @if ($area->display->puesto?->name)
+                                    <div class="mt-2 transition-all duration-300"
+                                         :class="{
+                                             'animate-pulse-text scale-110': isBlinking,
+                                             '': !isBlinking
+                                         }">
+                                        <p class="font-semibold"
+                                           :class="{
+                                               'text-green-700 text-xl': isBlinking,
+                                               'text-gray-700 text-base': !isBlinking
+                                           }">
+                                            PUESTO: {{ $area->display->puesto->name }}
+                                        </p>
+                                    </div>
+                                @endif
+                                
+                                <p class="text-sm mt-1 transition-all duration-300"
+                                   :class="{
+                                       'text-green-600 font-semibold': isBlinking,
+                                       'text-gray-600': !isBlinking
+                                   }">
+                                    Llamada a las {{ \Carbon\Carbon::parse($area->display->called_at)->format('H:i') }}
                                 </p>
                             @else
                                 <p class="text-sm text-gray-500">No hay fichas llamadas</p>
@@ -48,29 +68,34 @@
                 </div>
             </div>
 
-            <div class="bg-white p-6 rounded-lg shadow-md">
-                <h2 class="text-xl font-semibold text-gray-800 mb-4 text-center">Video de Espera</h2>
-                <div x-data="{
-                    activeIndex: 0,
-                    videos: @js($videoUrls),
-                    nextVideo() {
-                        this.activeIndex = (this.activeIndex + 1) % this.videos.length;
-                    }
-                }" class="aspect-w-16 aspect-h-9">
+            <div class="bg-white p-1 rounded-lg shadow-md">
+     <!-- Para mostrar el video -->
+                <div 
+                    x-data="{
+                        activeIndex: 0,
+                        videos: @js($videoUrls),
+                        nextVideo() {
+                            this.activeIndex = (this.activeIndex + 1) % this.videos.length;
+                        }
+                    }" 
+                    class="w-full"
+                >
                     <div class="text-gray-500 text-center flex items-center justify-center h-full" x-show="videos.length === 0">
                         No hay videos disponibles.
                     </div>
+
                     <template x-if="videos.length > 0">
                         <video
                             :src="videos[activeIndex].url"
                             controls
                             autoplay
                             @ended="nextVideo"
-                            class="w-full h-full object-cover rounded-lg"
+                            class="w-full h-[500px] md:h-[600px] lg:h-[700px] object-cover rounded-lg"
                         ></video>
                     </template>
                 </div>
             </div>
+
         </div>
     </div>
 
@@ -88,36 +113,61 @@
             return {
                 areaId: areaId,
                 isBlinking: initialBlinking,
+                blinkCount: 0,
                 
                 init() {
                     // Reproducir sonido si ya está parpadeando al inicializar
                     if (this.isBlinking) {
-                        setTimeout(() => {
-                            playNotificationSound();
-                        }, 100);
+                        this.startBlinkingSequence();
                     }
 
                     // Escuchar eventos de Livewire
                     Livewire.on('auto-stop-blink', (data) => {
                         if (data.areaId === this.areaId) {
-                            setTimeout(() => {
-                                this.isBlinking = false;
-                                // Llamar a Livewire para actualizar el estado
-                                @this.call('stopBlink', this.areaId);
-                            }, 5000);
+                            // Ya no necesitamos este timeout porque el parpadeo se detiene automáticamente
+                            this.isBlinking = false;
+                            @this.call('stopBlink', this.areaId);
                         }
                     });
 
                     // Escuchar cambios en el estado de Livewire
                     Livewire.on('ticket-updated', (data) => {
                         if (data.areaId === this.areaId) {
-                            this.isBlinking = true;
-                            // Reproducir sonido cuando comience a parpadear
-                            setTimeout(() => {
-                                playNotificationSound();
-                            }, 100);
+                            this.startBlinkingSequence();
                         }
                     });
+                },
+                
+                startBlinkingSequence() {
+                    // Resetear contador
+                    this.blinkCount = 0;
+                    
+                    // Función para ejecutar cada ciclo de parpadeo
+                    const doBlink = () => {
+                        if (this.blinkCount < 4) { // Parpadear 4 veces
+                            // Activar parpadeo
+                            this.isBlinking = true;
+                            
+                            // Reproducir sonido
+                            playNotificationSound();
+                            
+                            // Después de 4.5 segundos, apagar el parpadeo
+                            setTimeout(() => {
+                                this.isBlinking = false;
+                                this.blinkCount++;
+                                
+                                // Si no hemos completado los 4 parpadeos, esperar y repetir
+                                if (this.blinkCount < 4) {
+                                    setTimeout(doBlink, 500); // Pausa corta de 0.5 segundos entre parpadeos
+                                }
+                                // Al completar los 4 parpadeos, la animación termina
+                                // Total: (4.5 * 4) + (0.5 * 3) = 18 + 1.5 = 19.5 segundos
+                            }, 4500); // Duración de cada parpadeo: 4.5 segundos
+                        }
+                    };
+                    
+                    // Iniciar la secuencia
+                    doBlink();
                 }
             }
         }
@@ -224,6 +274,21 @@
 
         .animate-pulse-green {
             animation: pulse-green 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-text {
+            0%, 100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.8;
+                transform: scale(1.1);
+            }
+        }
+
+        .animate-pulse-text {
+            animation: pulse-text 1.5s ease-in-out infinite;
         }
 
         .animate-bounce {

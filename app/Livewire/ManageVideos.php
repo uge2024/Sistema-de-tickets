@@ -65,6 +65,12 @@ class ManageVideos extends Component
         session()->flash('message', 'Video eliminado correctamente.');
     }
 
+    public function updatedVideo()
+{
+    $this->validateOnly('video');
+}
+
+
     public function render()
     {
         return view('livewire.manage-videos');

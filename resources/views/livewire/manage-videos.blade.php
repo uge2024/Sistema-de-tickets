@@ -1,7 +1,5 @@
 <div class="container mx-auto px-6 py-8">
-    <h1 class="text-2xl font-bold text-center mb-8">Sistema de Fichas</h1>
-
-    <div class="grid grid-cols-1 gap-6">
+       <div class="grid grid-cols-1 gap-6">
         <!-- Formulario -->
 <div class="bg-white p-6 rounded-lg shadow max-w-md mx-auto">
     <h2 class="text-xl font-semibold text-gray-800 mb-4 text-center">Subir nuevo video</h2>
@@ -12,7 +10,8 @@
         </div>
     @endif
 
-    <form wire:submit.prevent="store" class="space-y-4">
+    <form wire:submit.prevent="store" enctype="multipart/form-data" class="space-y-4">
+
         <div>
             <label class="block text-sm font-medium text-gray-700">Título</label>
             <input type="text" wire:model="title" class="w-full border border-gray-300 rounded px-3 py-2">
@@ -21,7 +20,9 @@
 
         <div>
             <label class="block text-sm font-medium text-gray-700">Video (MP4)</label>
-            <input type="file" wire:model="video" class="w-full">
+            <input type="file" wire:model="video" accept="video/mp4" class="w-full">
+            
+
             @if ($video)
             <div class="mt-4">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Vista previa:</label>

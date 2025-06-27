@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Display extends Model
 {
-    protected $fillable = ['area_id', 'ticket_id', 'called_at'];
+    protected $fillable = ['area_id', 'ticket_id', 'called_at', 'puesto_id'];
 
     protected $casts = [
         'called_at' => 'datetime', // Asegura que se maneje como fecha

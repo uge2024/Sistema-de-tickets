@@ -30,9 +30,26 @@ new class extends Component
 
                 <!-- Navigation Links -->
                 <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                    <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" wire:navigate>
-                        {{ __('Dashboard') }}
+                    <x-nav-link :href="route('home')" :active="request()->routeIs('home')" wire:navigate>
+                        {{ __('Generar Ficha') }}
                     </x-nav-link>
+                    <x-nav-link :href="route('manage')" :active="request()->routeIs('manage')" wire:navigate>
+                        {{ __('Llamar ficha') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('create-area')" :active="request()->routeIs('create-area')" wire:navigate>
+                        {{ __('Crear Area') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('asignar-puesto')" :active="request()->routeIs('asignar-puesto')" wire:navigate>
+                        {{ __('Asignar Puesto') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('videos')" :active="request()->routeIs('videos')" wire:navigate>
+                        {{ __('Videos') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('display')" target="_blank">
+                        {{ __('Pantalla') }}
+                    </x-nav-link>
+                    
+                    
                 </div>
             </div>
 
