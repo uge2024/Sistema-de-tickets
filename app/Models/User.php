@@ -50,4 +50,26 @@ class User extends Authenticatable
     return $this->belongsTo(Puesto::class);
 }
 
+public function tickets()
+{
+    return $this->hasMany(Ticket::class);
+}
+
+// Métodos útiles para el dashboard
+public function ticketsAtendidosHoy()
+{
+    return $this->tickets()
+        ->atendidos()
+        ->whereDate('updated_at', today())
+        ->count();
+}
+
+public function ticketsAtendidosEnPeriodo($inicio, $fin)
+{
+    return $this->tickets()
+        ->atendidos()
+        ->entreFechas($inicio, $fin)
+        ->count();
+}
+
 }
