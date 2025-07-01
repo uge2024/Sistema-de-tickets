@@ -4,8 +4,10 @@ use Illuminate\Support\Facades\Route;
 use App\Livewire\ManageVideos;
 
 Route::middleware('auth')->group(function () {
-    Route::view('/', 'welcome')->name('home');
-    Route::view('dashboard', 'dashboard')->middleware('verified')->name('dashboard');
+    Route::view('/generate-ticket', 'welcome')->name('home');
+
+    Route::view('/', 'dashboard')->middleware('verified')->name('dashboard');
+
     Route::view('profile', 'profile')->name('profile');
     
     Route::get('/create-area', function () {

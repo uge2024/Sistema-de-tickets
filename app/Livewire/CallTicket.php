@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Auth;
 class CallTicket extends Component
 {
     public $puesto;
-    public $areas;
+    public $area; // ← CAMBIO: Solo una área en lugar de colección
     public $pendingTickets = [];
     public $calledTickets = [];
 
@@ -21,33 +21,38 @@ class CallTicket extends Component
         if (!$this->puesto) {
             abort(403, 'No tienes un puesto asignado');
         }
-        $this->areas = collect([$this->puesto->area]);
+        
+        // ← CAMBIO: Cargar directamente el área del puesto
+        $this->area = $this->puesto->area;
+        if (!$this->area) {
+            abort(403, 'Tu puesto no tiene un área asignada');
+        }
+        
         $this->loadTickets();
     }
 
     public function loadTickets()
     {
-        $this->pendingTickets = $this->areas->flatMap(function ($area) {
-            return Ticket::with('area')
-                ->where('area_id', $area->id)
-                ->where('status', 'waiting')
-                ->orderByRaw("type = 'senior' DESC")
-                ->orderBy('created_at')
-                ->get();
-        })->groupBy('area_id');
+        // ← CAMBIO: Trabajar directamente con el área, no con colección
+        $this->pendingTickets = Ticket::with('area')
+            ->where('area_id', $this->area->id)
+            ->where('status', 'waiting')
+            ->orderByRaw("type = 'senior' DESC")
+            ->orderBy('created_at')
+            ->get();
 
-        $this->calledTickets = $this->areas->flatMap(function ($area) {
-            return Ticket::with('area')
-                ->where('area_id', $area->id)
-                ->where('status', 'called')
-                ->orderByDesc('updated_at')
-                ->take(5)
-                ->get();
-        })->groupBy('area_id');
+        $this->calledTickets = Ticket::with(['area', 'user'])
+            ->where('area_id', $this->area->id)
+            ->where('status', 'called')
+            ->where('user_id', Auth::id())
+            ->orderByDesc('updated_at')
+            ->take(5)
+            ->get();
     }
 
     public function callNextTicket($areaId)
     {
+        // Verificar que el área corresponde al puesto del usuario
         if ($this->puesto->area_id !== $areaId) {
             abort(403, 'No autorizado para esta área');
         }
@@ -60,71 +65,80 @@ class CallTicket extends Component
             ->first();
 
         if ($nextTicket) {
-            $nextTicket->update(['status' => 'called', 'updated_at' => now()]);
+            // Actualizar ticket con el usuario que lo llama
+            $nextTicket->update([
+                'status' => 'called', 
+                'user_id' => Auth::id(),
+                'updated_at' => now()
+            ]);
 
-            // ← AQUÍ ESTÁ EL CAMBIO: Agregar puesto_id
+            // Actualizar display con puesto y área
             Display::updateOrCreate(
                 ['area_id' => $areaId],
                 [
                     'ticket_id' => $nextTicket->id, 
-                    'puesto_id' => $this->puesto->id,  // ← LÍNEA AGREGADA
+                    'puesto_id' => $this->puesto->id,
                     'called_at' => now()
                 ]
             );
 
-            // Forzar recarga inmediata de tickets
+            // Recargar tickets
             $this->loadTickets();
-            $area = $nextTicket->area;
+            
+            // Eventos
             $this->dispatch('ticket-called', areaId: $areaId);
             $this->dispatch('ticket-updated', [
                 'areaId' => $areaId,
                 'ticketNumber' => $nextTicket->ticket_number,
-                'areaName' => $area->name,
+                'areaName' => $this->area->name,
+                'puestoName' => $this->puesto->name,
             ])->to('display-screen');
-            $this->dispatch('refresh-view'); // Evento para forzar actualización de la vista
+            $this->dispatch('refresh-view');
+            
+            \Log::info("Ticket {$nextTicket->ticket_number} llamado por usuario " . Auth::id() . " desde puesto {$this->puesto->name} en área {$this->area->name}");
         } else {
             $this->dispatch('no-tickets', areaId: $areaId);
         }
     }
 
     public function recallTicket($ticketId)
-{
-    $ticket = Ticket::with('area')->findOrFail($ticketId);
+    {
+        $ticket = Ticket::with('area')->findOrFail($ticketId);
 
-    if ($ticket->status === 'called' && $ticket->area_id === $this->puesto->area_id) {
-        // Actualizar timestamp del ticket para marcarlo como recién llamado
-        $ticket->update(['updated_at' => now()]);
+        // Verificar que el ticket fue llamado por el usuario actual
+        if ($ticket->status === 'called' && 
+            $ticket->area_id === $this->puesto->area_id && 
+            $ticket->user_id === Auth::id()) {
+            
+            // Actualizar timestamp del ticket para marcarlo como recién llamado
+            $ticket->update(['updated_at' => now()]);
 
-        // Actualizar/crear display con el puesto actual
-        Display::updateOrCreate(
-            ['area_id' => $ticket->area_id],
-            [
-                'ticket_id' => $ticket->id, 
-                'puesto_id' => $this->puesto->id,
-                'called_at' => now()
-            ]
-        );
+            // Actualizar/crear display con el puesto actual
+            Display::updateOrCreate(
+                ['area_id' => $ticket->area_id],
+                [
+                    'ticket_id' => $ticket->id, 
+                    'puesto_id' => $this->puesto->id,
+                    'called_at' => now()
+                ]
+            );
 
-        // Recargar tickets para actualizar la vista
-        $this->loadTickets();
-        
-        // IMPORTANTE: Emitir primero el evento general de ticket-called
-        $this->dispatch('ticket-called', ['areaId' => $ticket->area_id]);
-        
-        // Luego emitir el evento para el display
-        $this->dispatch('ticket-updated', [
-            'areaId' => $ticket->area_id,
-            'ticketNumber' => $ticket->ticket_number,
-            'areaName' => $ticket->area->name,
-        ])->to('display-screen');
-        
-        // Finalmente refrescar la vista
-        $this->dispatch('refresh-view');
-        
-        // Log para debugging
-        \Log::info("Ticket {$ticket->ticket_number} vuelto a llamar por puesto {$this->puesto->name}");
+            // Recargar tickets para actualizar la vista
+            $this->loadTickets();
+            
+            $this->dispatch('ticket-called', ['areaId' => $ticket->area_id]);
+            
+            $this->dispatch('ticket-updated', [
+                'areaId' => $ticket->area_id,
+                'ticketNumber' => $ticket->ticket_number,
+                'areaName' => $ticket->area->name,
+            ])->to('display-screen');
+            
+            $this->dispatch('refresh-view');
+            
+            \Log::info("Ticket {$ticket->ticket_number} vuelto a llamar por usuario " . Auth::id() . " en puesto {$this->puesto->name}");
+        }
     }
-}
 
     public function render()
     {
