@@ -72,16 +72,22 @@ class DisplayScreen extends Component
     }
 
     private function activateBlinking($areaId, $ticketNumber)
-    {
-        $this->blinkingAreas[$areaId] = true;
-        
-        // Emitir eventos
-        $this->dispatch('play-notification-sound');
-        $this->dispatch('auto-stop-blink', areaId: $areaId);
-        
-        // Log para debugging
-        \Log::info("Activando parpadeo para área {$areaId} con ticket: {$ticketNumber}");
-    }
+{
+    $this->blinkingAreas[$areaId] = true;
+    
+    // Emitir eventos
+    $this->dispatch('play-notification-sound');
+    
+    // NUEVO: Evento directo para JavaScript
+    $this->dispatch('ticket-updated', [
+        'areaId' => $areaId,
+        'ticketNumber' => $ticketNumber,
+        'timestamp' => microtime(true) // Forzar que sea único
+    ]);
+    
+    // Log para debugging
+    \Log::info("Activando parpadeo para área {$areaId} con ticket: {$ticketNumber}");
+}
 
     public function loadVideos()
     {

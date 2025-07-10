@@ -3,6 +3,12 @@
 use Illuminate\Support\Facades\Route;
 use App\Livewire\ManageVideos;
 
+
+// Ruta pública sin autenticación
+Route::get('/display', function () {
+    return view('display');
+})->name('display');
+
 Route::middleware('auth')->group(function () {
     Route::view('/generate-ticket', 'welcome')->name('home');
 
@@ -16,9 +22,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/manage', function () {
         return view('manage');
     })->name('manage');
-    Route::get('/display', function () {
-        return view('display');
-    })->name('display');
+    
     Route::get('/videos', function () {
         return view('videos');
     })->name('videos');
