@@ -100,7 +100,7 @@ class GenerateTicket extends Component
             $printer->text("{$ticket->ticket_number}\n");
             $printer->setTextSize(1, 1); // Volver a tamaño normal
             $printer->text("Área: {$area->name}\n"); // Añadir el área
-            $printer->text("No arrójelo papel en la vía pública, de esta manera\n");
+            $printer->text("No arróje el papel en la vía pública, de esta manera\n");
             $printer->text("contribuye con el cuidado del medio ambiente.\n");
             $printer->text(now()->format('d-m-Y H:i') . "\n");
             $printer->text("UGE\n");
