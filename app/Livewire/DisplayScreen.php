@@ -78,11 +78,11 @@ class DisplayScreen extends Component
     // Emitir eventos
     $this->dispatch('play-notification-sound');
     
-    // NUEVO: Evento directo para JavaScript
-    $this->dispatch('ticket-updated', [
+    // 🔥 CAMBIO: Usar evento diferente que NO cause bucle
+    $this->dispatch('blink-start', [
         'areaId' => $areaId,
         'ticketNumber' => $ticketNumber,
-        'timestamp' => microtime(true) // Forzar que sea único
+        'timestamp' => microtime(true)
     ]);
     
     // Log para debugging
@@ -98,32 +98,32 @@ class DisplayScreen extends Component
     }
 
     public function updateTicket($data)
-    {
-        // Validar datos recibidos
-        if (!isset($data['areaId']) || !isset($data['ticketNumber'])) {
-            \Log::warning('Datos incompletos en updateTicket', $data);
-            return;
-        }
-
-        $areaId = $data['areaId'];
-        $ticketNumber = $data['ticketNumber'];
-        
-        // Inicializar si no existe
-        if (!array_key_exists($areaId, $this->blinkingAreas)) {
-            $this->blinkingAreas[$areaId] = false;
-        }
-        
-        $lastTicket = $this->lastUpdatedTickets[$areaId] ?? null;
-        
-        // Solo activar si hay un cambio real
-        if ($this->hasTicketChanged($ticketNumber, $lastTicket)) {
-            $this->activateBlinking($areaId, $ticketNumber);
-            $this->lastUpdatedTickets[$areaId] = $ticketNumber;
-            
-            // Recargar áreas para mantener sincronía
-            $this->loadAreas();
-        }
+{
+    // Validar datos recibidos
+    if (!isset($data['areaId']) || !isset($data['ticketNumber'])) {
+        \Log::warning('Datos incompletos en updateTicket', $data);
+        return;
     }
+
+    $areaId = $data['areaId'];
+    $ticketNumber = $data['ticketNumber'];
+    
+    // 🔥 SIEMPRE activar parpadeo (sin verificar cambios)
+    $this->blinkingAreas[$areaId] = true;
+    $this->lastUpdatedTickets[$areaId] = $ticketNumber;
+    
+    // 🔥 NO llamar activateBlinking aquí (evitar bucle)
+    // 🔥 NO llamar loadAreas aquí (evitar bucle)
+    
+    // Solo emitir el evento directo
+    $this->dispatch('blink-start', [
+        'areaId' => $areaId,
+        'ticketNumber' => $ticketNumber,
+        'timestamp' => microtime(true)
+    ]);
+    
+    \Log::info("✅ UpdateTicket procesado para área {$areaId}, ticket: {$ticketNumber}");
+}
 
     public function stopBlink($areaId)
     {

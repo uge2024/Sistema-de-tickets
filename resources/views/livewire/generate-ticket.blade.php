@@ -44,6 +44,7 @@
                     >
                         Normal
                     </button>
+                    <!--
                     <button
                         wire:click="generateTicketWithType('senior')"
                         type="button"
@@ -52,6 +53,7 @@
                     >
                         Tercera Edad
                     </button>
+                -->
                 </div>
                 <div class="mt-6 text-center">
                     <button

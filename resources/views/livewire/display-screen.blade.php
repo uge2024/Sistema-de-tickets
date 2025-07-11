@@ -22,7 +22,7 @@
             
             <!-- Columna de fichas llamadas -->
             <div class="flex flex-col">
-                <div class="bg-white p-6 rounded-lg shadow-md flex-1" wire:poll.3s="loadAreas">
+                <div class="bg-white p-6 rounded-lg shadow-md flex-1" wire:poll.10s="loadAreas">
                     <h2 class="text-2xl md:text-3xl font-semibold text-gray-800 mb-6 text-center">
                         <i class="fas fa-bullhorn mr-3 text-blue-600"></i>
                         Últimas Fichas Llamadas
@@ -294,38 +294,36 @@
 
         // CONFIGURAR LISTENERS UNA SOLA VEZ
         function setupEventListeners() {
-            document.addEventListener('livewire:initialized', () => {
-                console.log('📡 Configurando listeners de Livewire...');
-                
-                // Listener principal para ticket-updated SIN DEBOUNCE
-                Livewire.on('ticket-updated', (data) => {
-                    console.log('🎯 EVENTO ticket-updated recibido:', data);
-                    handleTicketEvent(data);
-                });
-                
-                // Listener para ticket-called SIN DEBOUNCE
-                Livewire.on('ticket-called', (data) => {
-                    console.log('🎯 EVENTO ticket-called recibido:', data);
-                    handleTicketEvent(data);
-                });
-                
-                // Listener adicional para cualquier evento de parpadeo
-                Livewire.on('blink-area', (areaId) => {
-                    console.log('🎯 EVENTO blink-area recibido:', areaId);
-                    if (areaId) {
-                        window.triggerAreaBlink(areaId);
-                    }
-                });
-                
-                // Listener para play-notification-sound
-                Livewire.on('play-notification-sound', () => {
-                    console.log('🎯 EVENTO play-notification-sound recibido');
-                    playNotificationSound();
-                });
-                
-                console.log('✅ Listeners configurados');
-            });
-        }
+    document.addEventListener('livewire:initialized', () => {
+        console.log('📡 Configurando listeners de Livewire...');
+        
+        // 🔥 CAMBIO: Escuchar blink-start en lugar de ticket-updated
+        Livewire.on('blink-start', (data) => {
+            console.log('🎯 EVENTO blink-start recibido:', data);
+            handleTicketEvent(data);
+        });
+        
+        // Mantener los demás listeners igual
+        Livewire.on('ticket-called', (data) => {
+            console.log('🎯 EVENTO ticket-called recibido:', data);
+            handleTicketEvent(data);
+        });
+        
+        Livewire.on('blink-area', (areaId) => {
+            console.log('🎯 EVENTO blink-area recibido:', areaId);
+            if (areaId) {
+                window.triggerAreaBlink(areaId);
+            }
+        });
+        
+        Livewire.on('play-notification-sound', () => {
+            console.log('🎯 EVENTO play-notification-sound recibido');
+            playNotificationSound();
+        });
+        
+        console.log('✅ Listeners configurados');
+    });
+}
 
         // MANEJAR EVENTOS DE TICKETS - SIN DEBOUNCE
         function handleTicketEvent(data) {
