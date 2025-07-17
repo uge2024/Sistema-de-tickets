@@ -190,7 +190,7 @@
             </div>
         </div>
 
-        <!-- Footer con información del sistema -->
+        <!-- Footer con información del sistema
         <div class="mt-6 text-center">
             <div class="bg-white/80 rounded-lg p-3">
                 <div class="flex justify-center items-center space-x-8 text-sm text-gray-600">
@@ -206,7 +206,7 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div> -->
     </div>
 
     <!-- Audio para notificaciones -->
