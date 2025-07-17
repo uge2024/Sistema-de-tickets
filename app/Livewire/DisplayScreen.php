@@ -13,6 +13,14 @@ class DisplayScreen extends Component
     public $lastUpdatedTickets = [];
     public $blinkingAreas = [];
     public $isInitialized = false;
+    
+    // 🔥 NUEVO: Cache para evitar consultas innecesarias
+    public $lastLoadTime = 0;
+    public $areasHash = '';
+    
+    // 🔥 NUEVO: Debounce para loadAreas
+    public $lastLoadCall = 0;
+    private const LOAD_DEBOUNCE = 3; // 3 segundos mínimo entre llamadas
 
     protected $listeners = ['ticket-updated' => 'updateTicket'];
 
@@ -20,7 +28,6 @@ class DisplayScreen extends Component
     {
         $this->initializeData();
         $this->loadVideos();
-        // Marcar como inicializado DESPUÉS de cargar los datos iniciales
         $this->isInitialized = true;
     }
 
@@ -28,19 +35,43 @@ class DisplayScreen extends Component
     {
         $this->areas = Area::with(['display.ticket', 'display.puesto'])->get();
         
-        // Inicializar arrays sin activar parpadeos
+        // 🔥 NUEVO: Generar hash inicial
+        $this->areasHash = $this->generateAreasHash();
+        
         foreach ($this->areas as $area) {
             $this->blinkingAreas[$area->id] = false;
             $this->lastUpdatedTickets[$area->id] = $area->display?->ticket?->ticket_number ?? null;
         }
     }
 
+    // 🔥 NUEVO: Método optimizado con debounce y cache
     public function loadAreas()
     {
-        $this->areas = Area::with(['display.ticket', 'display.puesto'])->get();
+        $currentTime = microtime(true);
+        
+        // Debounce: evitar llamadas muy frecuentes
+        if ($currentTime - $this->lastLoadCall < self::LOAD_DEBOUNCE) {
+            \Log::info("LoadAreas bloqueado por debounce");
+            return;
+        }
+        
+        $this->lastLoadCall = $currentTime;
+        
+        // Cargar datos
+        $newAreas = Area::with(['display.ticket', 'display.puesto'])->get();
+        $newHash = $this->generateAreasHash($newAreas);
+        
+        // 🔥 OPTIMIZACIÓN: Solo procesar si hay cambios reales
+        if ($newHash === $this->areasHash && $this->isInitialized) {
+            \Log::info("Sin cambios detectados, saltando procesamiento");
+            return;
+        }
+        
+        \Log::info("Cambios detectados, procesando áreas");
+        $this->areasHash = $newHash;
+        $this->areas = $newAreas;
 
         foreach ($this->areas as $area) {
-            // Inicializar si no existe la clave
             if (!array_key_exists($area->id, $this->blinkingAreas)) {
                 $this->blinkingAreas[$area->id] = false;
             }
@@ -48,89 +79,123 @@ class DisplayScreen extends Component
             $currentTicket = $area->display?->ticket?->ticket_number ?? null;
             $lastTicket = $this->lastUpdatedTickets[$area->id] ?? null;
             
-            // Detectar cambios significativos
             $hasChanged = $this->hasTicketChanged($currentTicket, $lastTicket);
             
             if ($this->isInitialized && $hasChanged) {
                 $this->activateBlinking($area->id, $currentTicket);
             }
             
-            // Actualizar el último ticket conocido
             $this->lastUpdatedTickets[$area->id] = $currentTicket;
         }
+        
+        $this->lastLoadTime = $currentTime;
+    }
+
+    // 🔥 NUEVO: Generar hash para detectar cambios reales
+    private function generateAreasHash($areas = null)
+    {
+        $areas = $areas ?? $this->areas;
+        if (!$areas) return '';
+        
+        $data = [];
+        foreach ($areas as $area) {
+            $data[$area->id] = [
+                'ticket' => $area->display?->ticket?->ticket_number ?? null,
+                'called_at' => $area->display?->called_at ?? null,
+                'puesto' => $area->display?->puesto?->name ?? null,
+            ];
+        }
+        
+        return md5(json_encode($data));
     }
 
     private function hasTicketChanged($currentTicket, $lastTicket)
     {
-        // No hay cambio si ambos son null
         if ($currentTicket === null && $lastTicket === null) {
             return false;
         }
-        
-        // Hay cambio si son diferentes
         return $currentTicket !== $lastTicket;
     }
 
     private function activateBlinking($areaId, $ticketNumber)
-{
-    $this->blinkingAreas[$areaId] = true;
-    
-    // Emitir eventos
-    $this->dispatch('play-notification-sound');
-    
-    // 🔥 CAMBIO: Usar evento diferente que NO cause bucle
-    $this->dispatch('blink-start', [
-        'areaId' => $areaId,
-        'ticketNumber' => $ticketNumber,
-        'timestamp' => microtime(true)
-    ]);
-    
-    // Log para debugging
-    \Log::info("Activando parpadeo para área {$areaId} con ticket: {$ticketNumber}");
-}
+    {
+        $this->blinkingAreas[$areaId] = true;
+        
+        // 🔥 OPTIMIZACIÓN: Solo un evento, sin loops
+        $this->dispatch('blink-start', [
+            'areaId' => $areaId,
+            'ticketNumber' => $ticketNumber,
+            'timestamp' => microtime(true)
+        ]);
+        
+        // 🔥 REDUCIR LOGS: Solo log importante
+        \Log::info("Parpadeo activado: área {$areaId}, ticket: {$ticketNumber}");
+    }
 
     public function loadVideos()
     {
+        // 🔥 OPTIMIZACIÓN: Cache de videos si no han cambiado
+        static $lastVideoCheck = 0;
+        static $cachedVideos = null;
+        
+        $currentTime = time();
+        
+        if ($cachedVideos !== null && ($currentTime - $lastVideoCheck) < 300) { // 5 minutos cache
+            $this->videoUrls = $cachedVideos;
+            return;
+        }
+        
         $this->videoUrls = Video::where('is_active', true)
             ->get()
             ->map(fn ($video) => ['url' => $video->url])
             ->toArray();
+            
+        $cachedVideos = $this->videoUrls;
+        $lastVideoCheck = $currentTime;
     }
 
     public function updateTicket($data)
-{
-    // Validar datos recibidos
-    if (!isset($data['areaId']) || !isset($data['ticketNumber'])) {
-        \Log::warning('Datos incompletos en updateTicket', $data);
-        return;
-    }
+    {
+        if (!isset($data['areaId']) || !isset($data['ticketNumber'])) {
+            \Log::warning('Datos incompletos en updateTicket', $data);
+            return;
+        }
 
-    $areaId = $data['areaId'];
-    $ticketNumber = $data['ticketNumber'];
-    
-    // 🔥 SIEMPRE activar parpadeo (sin verificar cambios)
-    $this->blinkingAreas[$areaId] = true;
-    $this->lastUpdatedTickets[$areaId] = $ticketNumber;
-    
-    // 🔥 NO llamar activateBlinking aquí (evitar bucle)
-    // 🔥 NO llamar loadAreas aquí (evitar bucle)
-    
-    // Solo emitir el evento directo
-    $this->dispatch('blink-start', [
-        'areaId' => $areaId,
-        'ticketNumber' => $ticketNumber,
-        'timestamp' => microtime(true)
-    ]);
-    
-    \Log::info("✅ UpdateTicket procesado para área {$areaId}, ticket: {$ticketNumber}");
-}
+        $areaId = $data['areaId'];
+        $ticketNumber = $data['ticketNumber'];
+        
+        // 🔥 OPTIMIZACIÓN: Solo actualizar estado, NO recargar todo
+        $this->blinkingAreas[$areaId] = true;
+        $this->lastUpdatedTickets[$areaId] = $ticketNumber;
+        
+        // Solo emitir evento directo
+        $this->dispatch('blink-start', [
+            'areaId' => $areaId,
+            'ticketNumber' => $ticketNumber,
+            'timestamp' => microtime(true)
+        ]);
+        
+        \Log::info("UpdateTicket procesado: área {$areaId}, ticket: {$ticketNumber}");
+    }
 
     public function stopBlink($areaId)
     {
         if (array_key_exists($areaId, $this->blinkingAreas)) {
             $this->blinkingAreas[$areaId] = false;
-            \Log::info("Parpadeo detenido para área: {$areaId}");
+            \Log::info("Parpadeo detenido: área {$areaId}");
         }
+    }
+
+    // 🔥 NUEVO: Método para polling inteligente
+    public function checkForUpdates()
+    {
+        // Solo hacer la verificación real si han pasado suficientes segundos
+        $currentTime = microtime(true);
+        if ($currentTime - $this->lastLoadTime < 8) { // Mínimo 8 segundos
+            return;
+        }
+        
+        $this->loadAreas();
     }
 
     public function render()

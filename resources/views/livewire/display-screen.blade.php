@@ -22,7 +22,8 @@
             
             <!-- Columna de fichas llamadas -->
             <div class="flex flex-col">
-                <div class="bg-white p-6 rounded-lg shadow-md flex-1" wire:poll.10s="loadAreas">
+                <!-- 🔥 CAMBIO: Polling más inteligente -->
+                <div class="bg-white p-6 rounded-lg shadow-md flex-1" wire:poll.15s="checkForUpdates">
                     <h2 class="text-2xl md:text-3xl font-semibold text-gray-800 mb-6 text-center">
                         <i class="fas fa-bullhorn mr-3 text-blue-600"></i>
                         Últimas Fichas Llamadas
@@ -39,11 +40,17 @@
                                 x-data="{ 
                                     areaId: {{ $area->id }},
                                     isBlinking: {{ $isBlinking ? 'true' : 'false' }},
+                                    initialized: false,
                                     
                                     init() {
-                                        console.log('INIT Área ' + this.areaId + ' - Parpadeo: ' + this.isBlinking);
+                                        if (this.initialized) return; // 🔥 PREVENIR DOBLE INICIALIZACIÓN
+                                        this.initialized = true;
                                         
-                                        // Registrar en sistema global
+                                        // 🔥 REDUCIR LOGS: Solo en debug
+                                        if (window.kioskDebug) {
+                                            console.log('INIT Área ' + this.areaId + ' - Parpadeo: ' + this.isBlinking);
+                                        }
+                                        
                                         if (!window.kioskCards) window.kioskCards = {};
                                         window.kioskCards[this.areaId] = this;
                                         
@@ -53,15 +60,21 @@
                                     },
                                     
                                     activateBlink() {
-                                        console.log('🔥 ACTIVANDO parpadeo área ' + this.areaId);
-                                        this.isBlinking = true;
+                                        if (this.isBlinking) return; // 🔥 PREVENIR DOBLE ACTIVACIÓN
                                         
-                                        // Usar sistema global
+                                        if (window.kioskDebug) {
+                                            console.log('🔥 ACTIVANDO parpadeo área ' + this.areaId);
+                                        }
+                                        this.isBlinking = true;
                                         window.triggerAreaBlink(this.areaId);
                                     },
                                     
                                     stopBlink() {
-                                        console.log('🛑 DETENIENDO parpadeo área ' + this.areaId);
+                                        if (!this.isBlinking) return; // 🔥 PREVENIR DOBLE DESACTIVACIÓN
+                                        
+                                        if (window.kioskDebug) {
+                                            console.log('🛑 DETENIENDO parpadeo área ' + this.areaId);
+                                        }
                                         this.isBlinking = false;
                                     }
                                 }"
@@ -106,8 +119,8 @@
                                             </p>
                                             <p class="font-bold text-2xl md:text-3xl lg:text-4xl"
                                                :class="{
-                                                   'text-yellow-300': isBlinking,
-                                                   'text-gray-700': !isBlinking
+                                                   'text-black text-7xl md:text-8xl lg:text-9xl animate-bounce': isBlinking,
+                                                   'text-black-600 text-6xl md:text-7xl lg:text-8xl': !isBlinking
                                                }">
                                                 {{ $area->display->puesto->name }}
                                             </p>
@@ -206,18 +219,38 @@
     </audio>
 
     <script>
+        // 🔥 CONFIGURACIÓN GLOBAL
+        window.kioskDebug = false; // Cambiar a true solo para debugging
+        window.kioskInitialized = false;
+        
         let isKioskMode = false;
         let notificationAudio = null;
         let audioUnlocked = false;
         
-        // SISTEMA GLOBAL SIMPLE
+        // SISTEMA GLOBAL OPTIMIZADO
         window.kioskCards = window.kioskCards || {};
         window.activeIntervals = window.activeIntervals || {};
         window.lastEventTime = 0;
+        window.eventBuffer = new Map(); // 🔥 NUEVO: Buffer para evitar eventos duplicados
 
-        // FUNCIÓN GLOBAL PARA MANEJAR PARPADEO
+        // 🔥 FUNCIÓN GLOBAL OPTIMIZADA PARA MANEJAR PARPADEO
         window.triggerAreaBlink = function(areaId) {
-            console.log('🎯 Sistema global: activando parpadeo área ' + areaId);
+            const currentTime = Date.now();
+            const lastTrigger = window.eventBuffer.get(areaId) || 0;
+            
+            // 🔥 DEBOUNCE: Evitar triggers muy frecuentes (2 segundos mínimo)
+            if (currentTime - lastTrigger < 2000) {
+                if (window.kioskDebug) {
+                    console.log('⏳ Trigger bloqueado por debounce área ' + areaId);
+                }
+                return;
+            }
+            
+            window.eventBuffer.set(areaId, currentTime);
+            
+            if (window.kioskDebug) {
+                console.log('🎯 Sistema global: activando parpadeo área ' + areaId);
+            }
             
             // Limpiar cualquier parpadeo anterior
             if (window.activeIntervals[areaId]) {
@@ -232,10 +265,10 @@
             // Sonido inmediato
             playNotificationSound();
             
-            // Configurar intervalos
+            // 🔥 INTERVALOS OPTIMIZADOS: Menos frecuentes
             const intervalId = setInterval(() => {
                 playNotificationSound();
-            }, 4000);
+            }, 5000); // Cada 5 segundos en lugar de 4
             
             const timeoutId = setTimeout(() => {
                 stopAreaBlink(areaId);
@@ -249,7 +282,12 @@
 
         // FUNCIÓN GLOBAL PARA DETENER PARPADEO
         window.stopAreaBlink = function(areaId) {
-            console.log('🛑 Sistema global: deteniendo parpadeo área ' + areaId);
+            if (window.kioskDebug) {
+                console.log('🛑 Sistema global: deteniendo parpadeo área ' + areaId);
+            }
+            
+            // Limpiar del buffer
+            window.eventBuffer.delete(areaId);
             
             // Limpiar intervalos
             if (window.activeIntervals[areaId]) {
@@ -278,90 +316,115 @@
                         alpine.isBlinking = isBlinking;
                     }
                 } catch (e) {
-                    // Ignorar errores de Alpine
+                    // Ignorar errores de Alpine silenciosamente
                 }
             });
         }
 
         // Inicialización principal
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 Iniciando sistema de kiosko...');
+            if (window.kioskInitialized) return; // 🔥 PREVENIR DOBLE INICIALIZACIÓN
+            window.kioskInitialized = true;
+            
+            if (window.kioskDebug) {
+                console.log('🚀 Iniciando sistema de kiosko...');
+            }
+            
             initializeKiosk();
             initializeAudio();
             initializeClock();
             setupEventListeners();
         });
 
-        // CONFIGURAR LISTENERS UNA SOLA VEZ
+        // 🔥 CONFIGURAR LISTENERS OPTIMIZADOS - UNA SOLA VEZ
         function setupEventListeners() {
-    document.addEventListener('livewire:initialized', () => {
-        console.log('📡 Configurando listeners de Livewire...');
-        
-        // 🔥 CAMBIO: Escuchar blink-start en lugar de ticket-updated
-        Livewire.on('blink-start', (data) => {
-            console.log('🎯 EVENTO blink-start recibido:', data);
-            handleTicketEvent(data);
-        });
-        
-        // Mantener los demás listeners igual
-        Livewire.on('ticket-called', (data) => {
-            console.log('🎯 EVENTO ticket-called recibido:', data);
-            handleTicketEvent(data);
-        });
-        
-        Livewire.on('blink-area', (areaId) => {
-            console.log('🎯 EVENTO blink-area recibido:', areaId);
-            if (areaId) {
-                window.triggerAreaBlink(areaId);
-            }
-        });
-        
-        Livewire.on('play-notification-sound', () => {
-            console.log('🎯 EVENTO play-notification-sound recibido');
-            playNotificationSound();
-        });
-        
-        console.log('✅ Listeners configurados');
-    });
-}
+            // 🔥 PREVENIR MÚLTIPLES CONFIGURACIONES
+            if (window.listenersConfigured) return;
+            window.listenersConfigured = true;
+            
+            document.addEventListener('livewire:initialized', () => {
+                if (window.kioskDebug) {
+                    console.log('📡 Configurando listeners de Livewire...');
+                }
+                
+                // 🔥 LISTENERS CON DEBOUNCE
+                let lastEventTime = 0;
+                const eventDebounce = 1000; // 1 segundo mínimo entre eventos
+                
+                Livewire.on('blink-start', (data) => {
+                    const currentTime = Date.now();
+                    if (currentTime - lastEventTime < eventDebounce) {
+                        return; // Ignorar eventos muy frecuentes
+                    }
+                    lastEventTime = currentTime;
+                    
+                    if (window.kioskDebug) {
+                        console.log('🎯 EVENTO blink-start recibido:', data);
+                    }
+                    handleTicketEvent(data);
+                });
+                
+                Livewire.on('ticket-called', (data) => {
+                    const currentTime = Date.now();
+                    if (currentTime - lastEventTime < eventDebounce) {
+                        return;
+                    }
+                    lastEventTime = currentTime;
+                    
+                    if (window.kioskDebug) {
+                        console.log('🎯 EVENTO ticket-called recibido:', data);
+                    }
+                    handleTicketEvent(data);
+                });
+                
+                Livewire.on('blink-area', (areaId) => {
+                    if (window.kioskDebug) {
+                        console.log('🎯 EVENTO blink-area recibido:', areaId);
+                    }
+                    if (areaId) {
+                        window.triggerAreaBlink(areaId);
+                    }
+                });
+                
+                Livewire.on('play-notification-sound', () => {
+                    if (window.kioskDebug) {
+                        console.log('🎯 EVENTO play-notification-sound recibido');
+                    }
+                    playNotificationSound();
+                });
+                
+                if (window.kioskDebug) {
+                    console.log('✅ Listeners configurados');
+                }
+            });
+        }
 
-        // MANEJAR EVENTOS DE TICKETS - SIN DEBOUNCE
+        // 🔥 MANEJAR EVENTOS DE TICKETS OPTIMIZADO
         function handleTicketEvent(data) {
-            console.log('🔄 Procesando evento de ticket:', data);
+            if (window.kioskDebug) {
+                console.log('🔄 Procesando evento de ticket:', data);
+            }
             
             let targetAreaId = null;
             
             // Manejar diferentes formatos de datos
             if (Array.isArray(data)) {
-                console.log('📦 Datos como array:', data);
                 if (data.length > 0) {
                     targetAreaId = data[0].areaId || data[0].area_id || data[0];
                 }
             } else if (data && typeof data === 'object') {
-                console.log('📦 Datos como objeto:', data);
                 targetAreaId = data.areaId || data.area_id || data.id;
             } else if (typeof data === 'number' || typeof data === 'string') {
-                console.log('📦 Datos como ID:', data);
                 targetAreaId = data;
             }
             
-            console.log('🎯 Área objetivo detectada:', targetAreaId);
-            
             if (targetAreaId) {
-                console.log('✅ Activando parpadeo para área:', targetAreaId);
-                window.triggerAreaBlink(targetAreaId);
-            } else {
-                console.log('❌ No se pudo determinar área objetivo. Datos recibidos:', data);
-                console.log('❌ Tipo de datos:', typeof data);
-                
-                // Como fallback, intentar activar todas las áreas si hay datos
-                if (data) {
-                    console.log('🔄 Intentando fallback: activar todas las áreas');
-                    Object.keys(window.kioskCards).forEach(areaId => {
-                        console.log('🔄 Activando área por fallback:', areaId);
-                        window.triggerAreaBlink(areaId);
-                    });
+                if (window.kioskDebug) {
+                    console.log('✅ Activando parpadeo para área:', targetAreaId);
                 }
+                window.triggerAreaBlink(targetAreaId);
+            } else if (window.kioskDebug) {
+                console.log('❌ No se pudo determinar área objetivo');
             }
         }
 
@@ -386,9 +449,13 @@
             if (element.requestFullscreen) {
                 element.requestFullscreen().then(() => {
                     isKioskMode = true;
-                    console.log('✅ Modo kiosko activado');
+                    if (window.kioskDebug) {
+                        console.log('✅ Modo kiosko activado');
+                    }
                 }).catch(err => {
-                    console.log('❌ No se pudo activar pantalla completa:', err);
+                    if (window.kioskDebug) {
+                        console.log('❌ No se pudo activar pantalla completa:', err);
+                    }
                 });
             } else if (element.webkitRequestFullscreen) {
                 element.webkitRequestFullscreen();
@@ -421,6 +488,7 @@
             }
         }
 
+        // 🔥 RELOJ OPTIMIZADO
         function initializeClock() {
             function updateClock() {
                 const now = new Date();
@@ -451,7 +519,9 @@
             if (notificationAudio) {
                 notificationAudio.volume = 0.9;
                 notificationAudio.load();
-                console.log('🔊 Audio inicializado');
+                if (window.kioskDebug) {
+                    console.log('🔊 Audio inicializado');
+                }
             }
         }
 
@@ -463,14 +533,26 @@
                     notificationAudio.pause();
                     notificationAudio.currentTime = 0;
                     audioUnlocked = true;
-                    console.log('🔓 Audio desbloqueado');
+                    if (window.kioskDebug) {
+                        console.log('🔓 Audio desbloqueado');
+                    }
                 }).catch(() => {
-                    console.log('🔒 Audio bloqueado por navegador');
+                    if (window.kioskDebug) {
+                        console.log('🔒 Audio bloqueado por navegador');
+                    }
                 });
             }
         }
 
+        // 🔥 AUDIO CON THROTTLE
+        let lastSoundPlay = 0;
         function playNotificationSound() {
+            const currentTime = Date.now();
+            if (currentTime - lastSoundPlay < 1000) { // Mínimo 1 segundo entre sonidos
+                return;
+            }
+            lastSoundPlay = currentTime;
+            
             if (!audioUnlocked) {
                 playFallbackSound();
                 return;
@@ -483,9 +565,13 @@
                     
                     if (playPromise !== undefined) {
                         playPromise.then(() => {
-                            console.log('🎵 Sonido reproducido');
+                            if (window.kioskDebug) {
+                                console.log('🎵 Sonido reproducido');
+                            }
                         }).catch(error => {
-                            console.log('❌ Error audio:', error);
+                            if (window.kioskDebug) {
+                                console.log('❌ Error audio:', error);
+                            }
                             playFallbackSound();
                         });
                     }
@@ -521,9 +607,14 @@
                     oscillator.start(noteStart);
                     oscillator.stop(noteEnd);
                 });
-                console.log('🎵 Sonido fallback reproducido');
+                
+                if (window.kioskDebug) {
+                    console.log('🎵 Sonido fallback reproducido');
+                }
             } catch (e) {
-                console.log('❌ Audio no disponible:', e);
+                if (window.kioskDebug) {
+                    console.log('❌ Audio no disponible:', e);
+                }
             }
         }
 
@@ -549,7 +640,9 @@
         document.addEventListener('fullscreenchange', function() {
             if (!document.fullscreenElement) {
                 isKioskMode = false;
-                console.log('❌ Salió del modo kiosko');
+                if (window.kioskDebug) {
+                    console.log('❌ Salió del modo kiosko');
+                }
             }
         });
 
@@ -557,7 +650,19 @@
         document.addEventListener('click', unlockAudio, { once: true });
         document.addEventListener('touchstart', unlockAudio, { once: true });
 
-        console.log('✅ Sistema de kiosko inicializado');
+        // 🔥 LIMPIEZA AL CERRAR/RECARGAR PÁGINA
+        window.addEventListener('beforeunload', function() {
+            // Limpiar todos los intervalos activos
+            Object.values(window.activeIntervals).forEach(interval => {
+                if (interval.interval) clearInterval(interval.interval);
+                if (interval.timeout) clearTimeout(interval.timeout);
+            });
+            window.activeIntervals = {};
+        });
+
+        if (window.kioskDebug) {
+            console.log('✅ Sistema de kiosko inicializado');
+        }
     </script>
 
     <style>
