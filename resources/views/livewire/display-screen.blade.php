@@ -8,7 +8,7 @@
 
     <div class="w-full h-screen flex flex-col px-0">
         
-        <!-- Header simplificado -->
+        <!-- Header simplificado
         <div class="text-center mb-6">
             <h1 class="text-4xl md:text-5xl font-bold text-gray-800 mb-2">
                 <div id="current-time">
@@ -16,7 +16,7 @@
                 </div>
             </h1>
         </div>
-
+    -->
         <!-- Contenido principal -->
         <div class="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-8">
             
@@ -194,17 +194,15 @@
         <div class="mt-6 text-center">
             <div class="bg-white/80 rounded-lg p-3">
                 <div class="flex justify-center items-center space-x-8 text-sm text-gray-600">
-                    <div class="flex items-center">
-                        <i class="fas fa-wifi text-green-500 mr-2"></i>
-                        <span>Sistema Conectado</span>
-                    </div>
-                    <div class="flex items-center">
-                        <i class="fas fa-users text-blue-500 mr-2"></i>
-                        <span>{{ $areas->count() }} Áreas Activas</span>
-                    </div>
-                    <div class="flex items-center" id="current-date">
-                        <i class="fas fa-calendar text-purple-500 mr-2"></i>
-                        <span>--</span>
+                                      
+                   
+                    <div class="text-center mb-6">
+                        <h1 class="text-4xl md:text-5xl font-bold text-gray-800 mb-2">
+                            <div id="current-time">
+                                --:--:--
+                            </div>
+                           
+                        </h1>
                     </div>
                 </div>
             </div>
