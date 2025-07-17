@@ -91,57 +91,59 @@
                                 </h3>
                                 
                                 @if ($area->display && $area->display->ticket)
-                                    <!-- Número de ticket - EXTRA GRANDE -->
-                                    <div class="mb-6">
+                                <!-- Número de ticket - Tamaño consistente -->
+                                <div class="mb-6">
+                                    <p class="text-sm md:text-base opacity-80 mb-2"
+                                    :class="isBlinking ? 'text-yellow-200' : 'text-blue-600'">
+                                        TICKET
+                                    </p>
+                                    <p class="font-black transition-all duration-500 leading-tight"
+                                    style="font-size: clamp(36px, 6vw, 64px);"
+                                    :class="{
+                                        'text-white': isBlinking,
+                                        'text-blue-600': !isBlinking
+                                    }">
+                                        {{ $area->display->ticket->ticket_number }}
+                                    </p>
+                                </div>
+
+                                @if ($area->display->puesto && $area->display->puesto->name)
+                                    <!-- Información del puesto - Tamaño consistente -->
+                                    <div class="mb-4 transition-all duration-300"
+                                        :class="{
+                                            'animate-pulse-text scale-105': isBlinking,
+                                            '': !isBlinking
+                                        }">
                                         <p class="text-sm md:text-base opacity-80 mb-2"
-                                           :class="isBlinking ? 'text-yellow-200' : 'text-blue-600'">
-                                            TICKET
+                                        :class="isBlinking ? 'text-yellow-200' : 'text-blue-600'">
+                                            DIRIGIRSE A
                                         </p>
-                                        <p class="font-black transition-all duration-500 leading-tight"
-                                           :class="{
-                                               'text-white text-7xl md:text-8xl lg:text-9xl animate-bounce': isBlinking,
-                                               'text-blue-600 text-6xl md:text-7xl lg:text-8xl': !isBlinking
-                                           }">
-                                            {{ $area->display->ticket->ticket_number }}
+                                        <p class="font-bold transition-all duration-300"
+                                        style="font-size: clamp(36px, 6vw, 64px);"
+                                        :class="{
+                                            'text-black-300': isBlinking,
+                                            'text-gray-700': !isBlinking
+                                        }">
+                                            {{ $area->display->puesto->name }}
                                         </p>
-                                    </div>
-                                    
-                                    @if ($area->display->puesto && $area->display->puesto->name)
-                                        <!-- Información del puesto - EXTRA GRANDE -->
-                                        <div class="mb-4 transition-all duration-300"
-                                             :class="{
-                                                 'animate-pulse-text scale-110': isBlinking,
-                                                 '': !isBlinking
-                                             }">
-                                            <p class="text-sm md:text-base opacity-80 mb-2"
-                                               :class="isBlinking ? 'text-yellow-200' : 'text-blue-600'">
-                                                DIRIGIRSE A
-                                            </p>
-                                            <p class="font-bold text-2xl md:text-3xl lg:text-4xl"
-                                               :class="{
-                                                   'text-black text-7xl md:text-8xl lg:text-9xl animate-bounce': isBlinking,
-                                                   'text-black-600 text-6xl md:text-7xl lg:text-8xl': !isBlinking
-                                               }">
-                                                {{ $area->display->puesto->name }}
-                                            </p>
-                                        </div>
-                                    @endif
-                                    
-                                    <!-- Hora de llamada -->
-                                    <div class="text-lg md:text-xl opacity-75"
-                                         :class="{
-                                             'text-yellow-200 font-semibold': isBlinking,
-                                             'text-gray-600': !isBlinking
-                                         }">
-                                        <i class="fas fa-clock mr-2"></i>
-                                        Llamada: {{ \Carbon\Carbon::parse($area->display->called_at)->format('H:i:s') }}
-                                    </div>
-                                @else
-                                    <div class="text-center py-12">
-                                        <i class="fas fa-hourglass-half text-6xl text-blue-300 mb-4 opacity-50"></i>
-                                        <p class="text-blue-400 text-xl">En espera...</p>
                                     </div>
                                 @endif
+
+    <!-- Hora de llamada -->
+    <div class="text-lg md:text-xl opacity-75"
+         :class="{
+             'text-yellow-200 font-semibold': isBlinking,
+             'text-gray-600': !isBlinking
+         }">
+        <i class="fas fa-clock mr-2"></i>
+        Llamada: {{ \Carbon\Carbon::parse($area->display->called_at)->format('H:i:s') }}
+    </div>
+@else
+    <div class="text-center py-12">
+        <i class="fas fa-hourglass-half text-6xl text-blue-300 mb-4 opacity-50"></i>
+        <p class="text-blue-400 text-xl">En espera...</p>
+    </div>
+@endif
                             </div>
                         @empty
                             <div class="text-center py-16">
